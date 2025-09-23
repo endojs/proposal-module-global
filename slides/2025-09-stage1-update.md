@@ -165,7 +165,7 @@ Number.prototype.toLocaleString = Number.prototype.toString;
 
 # Warning
 
-The software you are about to see has been known to exite visceral revulsion in the viewer.  Avert your gaze if you are sensitive to the use of `with`, direct `eval`, `arguments`, and `Proxy`.
+The software you are about to see has been known to excite visceral revulsion in the viewer.  Avert your gaze if you are sensitive to the use of `with`, direct `eval`, `arguments`, and `Proxy`.
 
 ---
 
@@ -243,7 +243,7 @@ while (i-->0) {}
 
 ---
 
-# Language support for module maps and seprate globals
+# Language support for module maps and separate globals
 
 - Benefit from the native module parse,
 - no censorship heuristics,
