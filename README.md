@@ -141,3 +141,8 @@ null
 undefined
 ```
 
+
+[proposal-source-phase-imports]: https://github.com/tc39/proposal-source-phase-imports
+[proposal-esm-phase-imports]: https://github.com/tc39/proposal-esm-phase-imports
+[proposal-compartments]: https://github.com/tc39/proposal-compartments
+[proposal-import-hook]: https://github.com/endojs/proposal-import-hook
