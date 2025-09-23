@@ -16,7 +16,7 @@ TC39 Plenary 110, 2025-09-(22–25)
 
 ---
 
-# Itinerary
+## Itinerary
 
 - Problem statement review
 - Motivating cases update, specifically
@@ -26,27 +26,31 @@ TC39 Plenary 110, 2025-09-(22–25)
 
 ---
 
-# Problem statement review
+## Problem statement review
 
 A way to evaluate a module and its dependencies in the context of a new global scope within the same Realm
 
 ---
 
-# Motivating Cases
-
-## Testing
-
-Some popular test runners create a whole realm and copy the intrinsics from the host realm into the guest in order to produce a porous emulation of compartments, effectively.  With compartments, the boundary is lighter and less porous.
-
-### Safe, fast multi-tenant realms
-
-### Supply chain attack mitigation
-
-…
+## Motivating Cases
 
 ---
 
-# Most websites
+### Testing
+
+Some popular test runners create a whole realm and copy the intrinsics from the host realm into the guest in order to produce a porous emulation of compartments, effectively.  With compartments, the boundary is lighter and less porous.
+
+---
+
+### Safe, fast multi-tenant realms
+
+---
+
+### Supply chain attack mitigation
+
+---
+
+## Most websites
 
 If a hacker gets into your datacenter and exfiltrates the unsalted hashes of all your users' passwords, security questions, and personally identifying information, your users will probably never find out and very few of them are going to leave.  They lost control over all that information a long time ago, it's all for sale in a dark corner of the web, and nobody's going to trace it back to you.
 
@@ -54,7 +58,7 @@ The web, as it is, was made for you. However,
 
 ---
 
-# But you are a bank
+## But you are a bank
 
 For some applications, defending against supply chain attacks is existential.
 
@@ -67,7 +71,7 @@ For some applications, defending against supply chain attacks is existential.
 
 ---
 
-# What do you do?
+## What do you do?
 
 - lockfile
 - integrity checks
@@ -80,7 +84,7 @@ For some applications, defending against supply chain attacks is existential.
 
 ---
 
-# More like inevitable
+## More like inevitable
 
 - Suppose that an attacker has succesfully obtained the right to publish arbitrary software as one of your trusted suppliers.
 - Suppose they got past the malware detector after publishing.
@@ -124,7 +128,15 @@ For some applications, defending against supply chain attacks is existential.
 
 ---
 
-# LavaMoat
+## LavaMoat
+
+You too can run malware from NPM (without consequences)
+
+https://github.com/naugtur/running-qix-malware/
+
+---
+
+## LavaMoat
 
 1. **Trust on First Use:** Static analysis of an entire application at a snapshot in time that produces a Policy for access to powerful modules and globals, such that changes are evident and most packages are labeled as benign and of low concern.
 2. **Runtime Policy Enforcement:** Enforce access to powerful globals and modules at runtime using HardenedJS `Compartment`
@@ -132,7 +144,7 @@ For some applications, defending against supply chain attacks is existential.
 
 ---
 
-# `lockdown`, `harden`, `Compartment`
+## `lockdown`, `harden`, `Compartment`
 
 1. Lockdown freezes the "shared intrinsics" and closes some exits.
 2. Harden lets you freeze an object and its transitive properties (and prototypes).
@@ -142,7 +154,7 @@ And how?
 
 ---
 
-# Blocking the exits
+## Blocking the exits
 
 ```js
 Function.prototype.constructor = function () {
@@ -163,7 +175,7 @@ Number.prototype.toLocaleString = Number.prototype.toString;
 
 ---
 
-# Warning
+## Warning
 
 The software you are about to see has been known to excite visceral revulsion in the viewer.  Avert your gaze if you are sensitive to the use of `with`, direct `eval`, `arguments`, and `Proxy`.
 
@@ -184,13 +196,14 @@ const makeEvaluator = new Function(`
     }
   }
 `);
+context.scopeTerminator = new Proxy(create(null), { has:() => true })
 const evaluate = apply(makeEvaluator, context, []);
 evaluate(suspiciousJavaScript);
 ```
 
 ---
 
-# But why
+## But why
 
 When we can commit these crimes today, why do we need language support for per-global module maps?
 
@@ -200,7 +213,7 @@ When we can commit these crimes today, why do we need language support for per-g
 
 ---
 
-# Caveats
+## Caveats
 
 Imperfect emulation of strict mode.
 
@@ -214,7 +227,7 @@ export default function () {
 
 ---
 
-# Caveats
+## Caveats
 
 Imperfect emulation of strict mode.
 
@@ -226,7 +239,7 @@ Oddly, using a with block and an opaque scope proxy either traps all properties 
 
 ---
 
-# Censorship
+## Censorship
 
 Modules must be precompiled to fit in `eval` and evade the censorship heuristics for `import`, `eval`, and HTML comments.
 
@@ -243,7 +256,7 @@ while (i-->0) {}
 
 ---
 
-# Language support for module maps and separate globals
+## Language support for module maps and separate globals
 
 - Benefit from the native module parse,
 - no censorship heuristics,
@@ -253,7 +266,7 @@ while (i-->0) {}
 
 ---
 
-# Motivating cases
+## Motivating cases
 
 - Supply chain attack mitigation
 - Testing infrastructure
@@ -261,7 +274,7 @@ while (i-->0) {}
 
 ---
 
-# Feedback review
+## Feedback review
 
 Three problems, one solution.
 
@@ -272,7 +285,7 @@ Three problems, one solution.
 
 ---
 
-# Compartment
+## Compartment
 
 _So,_ we pivot back to `new Compartment`, merging:
 
@@ -284,7 +297,7 @@ https://github.com/tc39/proposal-compartments.
 
 ---
 
-# Compartment
+## Compartment
 
 - A place to hang an `import` method
 - A name that has endured the _Shed Test_
@@ -292,7 +305,7 @@ https://github.com/tc39/proposal-compartments.
 
 ---
 
-# Resolution problem
+## Resolution problem
 
 Given:
 ```js
@@ -324,7 +337,7 @@ new ModuleSource(source, { base });
 
 ---
 
-# Separation of roles
+## Separation of roles
 
 Two URLs, often identical.
 
@@ -376,7 +389,7 @@ new ModuleSource(source, { base });
 
 ---
 
-# Performance: option needed to avoid hook trampoline
+## Performance: option needed to avoid hook trampoline
 
 ```js
 import source a from './a.js';
@@ -396,7 +409,7 @@ compartment.importNow('./a.js');
 
 ---
 
-# Handle on module record for module specifier
+## Handle on module record for module specifier
 
 ```js
 const a = new Compartment();
@@ -434,7 +447,7 @@ compartment.globalThis;
 
 ---
 
-# Evaluators
+## Evaluators
 
 We want these, but can exclude them, or put them in an annex for non-browser implementations.
 
@@ -452,9 +465,10 @@ compartment.globalThis.eval('"hello"');
 
 ---
 
-# Next steps
+## Next steps
 
-Request out-of-band opportunity to hear from (TG3 or Module Harmony).
+Request out-of-band opportunity to hear from  
+(TG3 or Module Harmony).
 
 - Kevin Gibbons,
 - Matthew Gaudet,
@@ -465,7 +479,7 @@ Regarding paths to evaluation, minimization of impact on HTML global categories,
 
 ---
 
-# Thank you
+## Thank you
 
 
 <!-- visual customizations -->
