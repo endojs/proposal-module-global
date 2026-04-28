@@ -97,6 +97,7 @@ TBD
 
 ## Design Questions
 
+- `handler` with `scopeHook` in `ModuleSource` vs `[[ScopeCeiling]]` in ModuleSource 
 
 
 [proposal-source-phase-imports]: https://github.com/tc39/proposal-source-phase-imports

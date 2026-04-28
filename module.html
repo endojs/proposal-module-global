@@ -4,7 +4,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>ModuleRecord and friends
+
+###################################################################################################
+
+
+  Open this file in the browser to see the diagram rendered with working links and color coding
+
+
+  (CMD/Ctrl)+Scroll to zoom in and out works
+
+###################################################################################################
+
+
+
+    </title>
     <base target="_blank">
 </head>
 
@@ -12,7 +26,8 @@
     <span style="background: #ffe">https://tc39.es/proposal-source-phase-imports</span>
     <span style="background: #fef">https://tc39.es/proposal-esm-phase-imports</span>
     <span style="background: #eff">https://github.com/endojs/proposal-import-hook</span>
-    <span style="background: #afa">new</span>
+    <span style="background: #afa">new variant A</span>
+    <span style="background: #9da">new variant B</span>
     <pre class="mermaid">
 
 classDiagram
@@ -48,7 +63,7 @@ classDiagram
     class SourceTextModuleRecord {
         [[ECMAScriptCode]] : Parse Node
         [[Context]] : Execution Context | EMPTY
-        +[[ScopeCeiling]] : Object | EMPTY
+        +A[[ScopeCeiling]] : Object | EMPTY
         [[ImportMeta]] : Object | EMPTY
         [[ImportEntries]] : List~ImportEntry Records~
         [[LocalExportEntries]] : List~ExportEntry Records~
@@ -61,6 +76,10 @@ classDiagram
     class ScopeCeiling:::added {
         [[OuterEnv]] = null
         [[BindingObject]] handles the globalThis binding and var
+        :
+        inheriting from ObjectEnvironmentRecord is sufficient,
+        but all bindings are dynamic andcould be slower than 
+        a mix of ObjectRecord and DeclarativeRecord
     }
 
     class EnvironmentRecord {
@@ -121,12 +140,12 @@ classDiagram
     ModuleRecord --> ModuleEnvironmentRecord : [[Environment]]
     RealmRecord --> GlobalEnvironmentRecord : [[GlobalEnv]]
     ModuleEnvironmentRecord ..> GlobalEnvironmentRecord : [[OuterEnv]]
-    ModuleEnvironmentRecord ..> ScopeCeiling : [[OuterEnv]]
+    ModuleEnvironmentRecord ..> ScopeCeiling : +[[OuterEnv]]
     GlobalEnvironmentRecord --> ObjectEnvironmentRecord : [[ObjectRecord]]
     GlobalEnvironmentRecord --> DeclarativeEnvironmentRecord : [[DeclarativeRecord]]
 
     ObjectEnvironmentRecord <|-- ScopeCeiling : would this suffice?
-    SourceTextModuleRecord --> ScopeCeiling : [[ScopeCeiling]]
+    SourceTextModuleRecord ..> ScopeCeiling : [[ScopeCeiling]] gets wrapped into
 
     class AbstractModuleSource:::sourceproposal {
         &lt;&lt;abstract>>
@@ -144,7 +163,7 @@ classDiagram
         [[Attributes]]
     }
     link ModuleRequestRecord "https://tc39.es/proposal-source-phase-imports/#sec-modulerequest-records"
-    note for ModuleRequestRecord "<a href=https://tc39.es/proposal-esm-phase-imports/#sec-modulesourcesequal>ModuleSourcesEqual(a,b)</a> <br> compares [[HostDefined]] too"
+    note for ModuleRequestRecord "<a href=https://tc39.es/proposal-esm-phase-imports/#sec-modulesourcesequal>ModuleSourcesEqual(a,b)</a> <br> compares [[HostDefined]] too. <br> could compare [[ScopeCeiling]]"
 
     class ModuleSourceRecord:::esmphaseproposal {
         [[HostDefined]] : anything
@@ -156,16 +175,20 @@ classDiagram
 
     class ModuleSource:::esmphaseproposal {
         [[ModuleSourceRecord]] : Module Source Record
-        +[[Handler]] : Object | EMPTY
-        +[[ScopeCeiling]] : Object | EMPTY
+        +A[[Handler]] : Object | EMPTY
+        +B[[ScopeCeiling]] : Object | EMPTY
+        +Aconstructor(src, handler)
+        +Bconstructor(src, handler, scopeCeilingObject)
     }
     link ModuleSource "https://tc39.es/proposal-esm-phase-imports/#sec-module-source-object"
     
+    ModuleSource ..> ScopeCeiling : [[ScopeCeiling]] gets wrapped into
+
     class Handler:::importhookproposal {
         [[importHook]]
         [[resolveHook]]
         [[importMetaHook]]
-        +[[scopeHook]]: populates the [[ScopeCeiling]] 
+        +A[[scopeHook]]: populates the [[ScopeCeiling]] 
     }
     AbstractModuleSource <|-- HostDefinedModuleSource
     AbstractModuleSource <|-- ModuleSource
@@ -188,9 +211,11 @@ classDef added fill:#afa
 
         setTimeout(() => {
             document.querySelectorAll('.mermaid svg p').forEach(p => {
-                console.log(p)
                 if (p.textContent.startsWith('+')) {
                     p.style.background = '#afa';
+                }
+                if (p.textContent.startsWith('+B')) {
+                    p.style.background = '#9da';
                 }
                 if (p.textContent.startsWith('-')) {
                     p.style.color = '#aaa';
@@ -200,6 +225,7 @@ classDef added fill:#afa
     </script>
     <style>
         .mermaid {
+            /* makes zooming in and out work */
             width: 200vw
         }
     </style>
