@@ -97,49 +97,6 @@ TBD
 
 ## Design Questions
 
-### Prototype chain in the browser
-
-`globalThis` in the browser has a non-trivial prototype chain for some Window
-API functionality and events.
-
-```js
-let pro = globalThis;
-while (pro = Object.getPrototypeOf(pro)) {
-  console.log(pro.toString())
-}
-```
-```
-// browsers
-[object Window]
-[object WindowProperties]
-[object EventTarget]
-[object Object]
-null
-```
-```
-// web extension contentscript
-[object Window]
-[object WindowProperties]
-null
-```
-```
-// Node.js
-[object Object]
-[object Object]
-null
-```
-```
-// Deno
-[object Window]
-[object EventTarget]
-[object Object]
-null
-```
-```
-// Hermes
-[object Object]
-undefined
-```
 
 
 [proposal-source-phase-imports]: https://github.com/tc39/proposal-source-phase-imports

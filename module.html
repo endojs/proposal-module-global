@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <base target="_blank">
+</head>
+
+<body>
+    <span style="background: #ffe">https://tc39.es/proposal-source-phase-imports</span>
+    <span style="background: #fef">https://tc39.es/proposal-esm-phase-imports</span>
+    <span style="background: #eff">https://github.com/endojs/proposal-import-hook</span>
+    <span style="background: #afa">new</span>
+    <pre class="mermaid">
+
+classDiagram
+    class ModuleRecord {
+        &lt;&lt;abstract>>
+        [[Status]]
+        [[Realm]] : Realm Record
+        [[Environment]] : Module Environment Record | EMPTY
+        [[Namespace]] : Object | EMPTY
+        [[SourceRecord]] : Module Source Record
+        -[[ModuleSource]] : replaced by esm-phase
+        [[HostDefined]] : anything
+    }
+    link ModuleRecord "https://tc39.es/ecma262/multipage/ecmascript-language-scripts-and-modules.html#sec-abstract-module-records"
+
+    class CyclicModuleRecord {
+        &lt;&lt;abstract>>
+        [[Status]]
+        [[EvaluationError]]
+        [[DFSAncestorIndex]]
+        [[RequestedModules]] : List~ModuleRequest Records~
+        [[LoadedModules]] : List~LoadedModuleRequest Records~
+        [[CycleRoot]]
+        [[HasTLA]] : Boolean
+        [[AsyncEvaluationOrder]]
+        [[TopLevelCapability]]
+        [[AsyncParentModules]]
+        [[PendingAsyncDependencies]]
+    }
+    link CyclicModuleRecord "https://tc39.es/ecma262/multipage/ecmascript-language-scripts-and-modules.html#cyclic-module-record"
+
+  
+    class SourceTextModuleRecord {
+        [[ECMAScriptCode]] : Parse Node
+        [[Context]] : Execution Context | EMPTY
+        +[[ScopeCeiling]] : Object | EMPTY
+        [[ImportMeta]] : Object | EMPTY
+        [[ImportEntries]] : List~ImportEntry Records~
+        [[LocalExportEntries]] : List~ExportEntry Records~
+        [[IndirectExportEntries]] : List~ExportEntry Records~
+        [[StarExportEntries]] : List~ExportEntry Records~
+    }
+    link SourceTextModuleRecord "https://tc39.es/ecma262/multipage/ecmascript-language-scripts-and-modules.html#sourctextmodule-record"
+    note for SourceTextModuleRecord "<a href=https://tc39.es/ecma262/multipage/ecmascript-language-scripts-and-modules.html#sec-source-text-module-record-initialize-environment>InitializeEnvironment()</a><br>to use [[ScopeCeiling]]<br>instead of realm.[[GlobalEnv]]<br>for  NewModuleEnvironment(OuterEnv)<br>if [[ScopeCeiling]] not EMPTY"
+
+    class ScopeCeiling:::added {
+        [[OuterEnv]] = null
+        [[BindingObject]] handles the globalThis binding and var
+    }
+
+    class EnvironmentRecord {
+        &lt;&lt;abstract>>
+        [[OuterEnv]] : Environment Record | null
+    }
+    link EnvironmentRecord "https://tc39.es/ecma262/#sec-environment-records"
+
+
+
+    class DeclarativeEnvironmentRecord {
+    }
+    link DeclarativeEnvironmentRecord "https://tc39.es/ecma262/#sec-declarative-environment-records" 
+
+    class ObjectEnvironmentRecord {
+        [[BindingObject]] : Object
+        [[IsWithEnvironment]] : Boolean
+    }
+
+    class GlobalEnvironmentRecord {
+        [[ObjectRecord]] : Object Environment Record
+        [[GlobalThisValue]] : Object
+        [[DeclarativeRecord]] : Declarative Environment Record
+        [[OuterEnv]] = null
+    }
+
+    class FunctionEnvironmentRecord {
+        [[ThisValue]]
+        [[ThisBindingStatus]]
+        [[FunctionObject]]
+        [[NewTarget]]
+    }
+
+    class ModuleEnvironmentRecord {
+        [[OuterEnv]] : Environment Record 
+    }
+    link ModuleEnvironmentRecord "https://tc39.es/ecma262/#sec-module-environment-records"
+
+    class RealmRecord {
+        [[AgentSignifier]]
+        [[Intrinsics]]
+        [[GlobalObject]] : Object
+        [[GlobalEnv]] : Global Environment Record
+        [[TemplateMap]]
+        [[LoadedModules]]
+        [[HostDefined]]
+    }
+
+    ModuleRecord <|-- CyclicModuleRecord
+    CyclicModuleRecord <|-- SourceTextModuleRecord
+    EnvironmentRecord <|-- DeclarativeEnvironmentRecord
+    EnvironmentRecord <|-- ObjectEnvironmentRecord
+    EnvironmentRecord <|-- GlobalEnvironmentRecord
+    DeclarativeEnvironmentRecord <|-- FunctionEnvironmentRecord
+    DeclarativeEnvironmentRecord <|-- ModuleEnvironmentRecord
+
+    ModuleRecord --> RealmRecord : [[Realm]]
+    ModuleRecord --> ModuleEnvironmentRecord : [[Environment]]
+    RealmRecord --> GlobalEnvironmentRecord : [[GlobalEnv]]
+    ModuleEnvironmentRecord ..> GlobalEnvironmentRecord : [[OuterEnv]]
+    ModuleEnvironmentRecord ..> ScopeCeiling : [[OuterEnv]]
+    GlobalEnvironmentRecord --> ObjectEnvironmentRecord : [[ObjectRecord]]
+    GlobalEnvironmentRecord --> DeclarativeEnvironmentRecord : [[DeclarativeRecord]]
+
+    ObjectEnvironmentRecord <|-- ScopeCeiling : would this suffice?
+    SourceTextModuleRecord --> ScopeCeiling : [[ScopeCeiling]]
+
+    class AbstractModuleSource:::sourceproposal {
+        &lt;&lt;abstract>>
+    }   
+    link AbstractModuleSource "https://tc39.es/proposal-source-phase-imports/#sec-abstract-module-source-constructor"
+
+    class HostDefinedModuleSource:::sourceproposal {
+        &lt;&lt;host-defined>>
+        e.g. WebAssembly.Module
+    }
+
+    class ModuleRequestRecord:::sourceproposal {
+        [[Specifier]] : String
+        [[Phase]] : source | evaluation
+        [[Attributes]]
+    }
+    link ModuleRequestRecord "https://tc39.es/proposal-source-phase-imports/#sec-modulerequest-records"
+    note for ModuleRequestRecord "<a href=https://tc39.es/proposal-esm-phase-imports/#sec-modulesourcesequal>ModuleSourcesEqual(a,b)</a> <br> compares [[HostDefined]] too"
+
+    class ModuleSourceRecord:::esmphaseproposal {
+        [[HostDefined]] : anything
+        [[SourceText]] : source text | NONE
+        [[ModuleSourceKind]] : String
+        [[ModuleSource]] : Object | EMPTY
+    }
+    link ModuleSourceRecord "https://tc39.es/proposal-esm-phase-imports/#module-source-record"
+
+    class ModuleSource:::esmphaseproposal {
+        [[ModuleSourceRecord]] : Module Source Record
+        +[[Handler]] : Object | EMPTY
+        +[[ScopeCeiling]] : Object | EMPTY
+    }
+    link ModuleSource "https://tc39.es/proposal-esm-phase-imports/#sec-module-source-object"
+    
+    class Handler:::importhookproposal {
+        [[importHook]]
+        [[resolveHook]]
+        [[importMetaHook]]
+        +[[scopeHook]]: populates the [[ScopeCeiling]] 
+    }
+    AbstractModuleSource <|-- HostDefinedModuleSource
+    AbstractModuleSource <|-- ModuleSource
+    ModuleRecord --> ModuleSourceRecord : [[SourceRecord]]
+    ModuleSourceRecord --> ModuleSource : [[ModuleSource]]
+    ModuleSource --> ModuleSourceRecord : [[ModuleSourceRecord]]
+    ModuleSource --> Handler : [[Handler]]
+    CyclicModuleRecord --> ModuleRequestRecord : [[RequestedModules]]
+
+classDef sourceproposal fill:#ffe
+classDef esmphaseproposal fill:#fef
+classDef importhookproposal fill:#eff
+
+classDef added fill:#afa
+
+  </pre>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true });
+
+        setTimeout(() => {
+            document.querySelectorAll('.mermaid svg p').forEach(p => {
+                console.log(p)
+                if (p.textContent.startsWith('+')) {
+                    p.style.background = '#afa';
+                }
+                if (p.textContent.startsWith('-')) {
+                    p.style.color = '#aaa';
+                }
+            })
+        }, 1000);
+    </script>
+    <style>
+        .mermaid {
+            width: 200vw
+        }
+    </style>
+
+</body>
+
+</html>
