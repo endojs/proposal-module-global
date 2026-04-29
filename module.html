@@ -6,15 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ModuleRecord and friends
 
-###################################################################################################
+        ###################################################################################################
 
 
-  Open this file in the browser to see the diagram rendered with working links and color coding
+        Open this file in the browser to see the diagram rendered with working links and color coding
 
 
-  (CMD/Ctrl)+Scroll to zoom in and out works
+        (CMD/Ctrl)+Scroll to zoom in and out works
 
-###################################################################################################
+        ###################################################################################################
 
 
 
@@ -175,27 +175,27 @@ classDiagram
 
     class ModuleSource:::esmphaseproposal {
         [[ModuleSourceRecord]] : Module Source Record
-        +A[[Handler]] : Object | EMPTY
-        +B[[ScopeCeiling]] : Object | EMPTY
-        +Aconstructor(src, handler)
-        +Bconstructor(src, handler, scopeCeilingObject)
+        +[[ModuleHandler]] : Object | EMPTY
+        +[[ScopeCeiling]] : Object | EMPTY
+        +constructor(src, handler)
     }
     link ModuleSource "https://tc39.es/proposal-esm-phase-imports/#sec-module-source-object"
     
     ModuleSource ..> ScopeCeiling : [[ScopeCeiling]] gets wrapped into
 
-    class Handler:::importhookproposal {
+    class ModuleHandler:::importhookproposal {
         [[importHook]]
         [[resolveHook]]
         [[importMetaHook]]
-        +A[[scopeHook]]: populates the [[ScopeCeiling]] 
+        +A[[scopeHook]]: populates the [[ScopeCeiling]] on ModuleRecord
+        +B[[scopeCeiling]]: captured in [[ScopeCeiling]] 
     }
     AbstractModuleSource <|-- HostDefinedModuleSource
     AbstractModuleSource <|-- ModuleSource
     ModuleRecord --> ModuleSourceRecord : [[SourceRecord]]
     ModuleSourceRecord --> ModuleSource : [[ModuleSource]]
     ModuleSource --> ModuleSourceRecord : [[ModuleSourceRecord]]
-    ModuleSource --> Handler : [[Handler]]
+    ModuleSource --> ModuleHandler : [[ModuleHandler]]
     CyclicModuleRecord --> ModuleRequestRecord : [[RequestedModules]]
 
 classDef sourceproposal fill:#ffe
@@ -207,7 +207,7 @@ classDef added fill:#afa
   </pre>
     <script type="module">
         import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-        mermaid.initialize({ startOnLoad: true });
+        mermaid.initialize({ startOnLoad: true, securityLevel: 'loose' });
 
         setTimeout(() => {
             document.querySelectorAll('.mermaid svg p').forEach(p => {
@@ -221,6 +221,17 @@ classDef added fill:#afa
                     p.style.color = '#aaa';
                 }
             })
+
+            document.querySelectorAll('.mermaid svg .edgePaths path').forEach(path => {
+                path.style.strokeWidth = '2px';
+                path.addEventListener('mouseover', () => {
+                    path.style.stroke = '#f00';
+                });
+                path.addEventListener('mouseout', () => {
+                    path.style.stroke = '';
+                });
+            });
+
         }, 1000);
     </script>
     <style>

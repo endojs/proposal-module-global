@@ -14,6 +14,9 @@ Champions:
 A way to evaluate a module and its dependencies in the context of a new global scope within the same Realm
 
 
+Sever the tie to the `GlobalEnvironmentRecord` in `ModuleEnvironmentRecord` instances and replace with `ScopeCeiling` whenever provided.
+
+
 
 > This proposal picks up from the previous proposal for
 > [Evaluators](https://github.com/tc39/proposal-compartments/blob/7e60fdbce66ef2d97370007afeb807192c653333/3-evaluator.md)
@@ -91,13 +94,48 @@ That includes REPLs, inline code execution results in editors (eg. [Quokka.js](h
 
 Maintaining the global state between executions of user-provided code snippets would benefit from the ability to control scope 
 
+## Proposal
+
+We extend the ModuleSource constructor to accept an optional handler. *Note: this is matching the handler from [proposal-import-hook][],*
+
+```js
+interface ModuleSource {
+  constructor(source: string | ModuleSource, handler?: ModuleHandler);
+}
+```
+
+The ModuleSource constructor eagerly captures the handler and the functions contained in it in internal slots. The implementation will thereafter pass the handler as the receiver object to any invocation of the `scopeHook`, so the hooks may consult other properties of the handler.
+
+> Aside  (from [proposal-import-hook][]), the handler is necessary for capturing a base specifier for resolving a relative import specifier, and allows 262 to avoid unnecssary specificity about resolution algorithms.
+
+Because the identity of a ModuleSource is a key in a realm's module map for purposes of denoting a corresponding module instance, we introduce the ability to construct a ModuleSource from the precompiled text and host data of another module source, but producing a distinct identity for purposes of multiple instantiation.
+
+```js
+type ModuleHandler = {
+  +A scopeHook?: scopeHook,
+  +B scopeCeiling?: Object,
+  // ...
+  [name: string | symbol | number]: unknown,
+};
+```
+
+The `scopeHook` is a function that accepts a single Object argument called `scopeCeiling` and synchronously adds properties to it using either set or define semantics. Returns void.
+
+The `scopeCeiling` object is later wrapped in a `ObjectEnvironmentRecord` and used as the `OuterEnv` of the `ModuleEnvironmentRecord` instance for a module created from the `ModuleSource` 
+
+
+
 ## Intersection Semantics
 
-TBD
+- Shares `ModuleHandler` with [proposal-import-hook][]
+- [proposal-import-hook][] deliberately proposes capturing the `handler` so that `importHook` could reference it via `this`, which gives it the convenience to create a subset of `scopeCeiling` or pass it on to `ModuleSource` it returns.
 
 ## Design Questions
 
-- `handler` with `scopeHook` in `ModuleSource` vs `[[ScopeCeiling]]` in ModuleSource 
+- `handler` with `scopeHook` in `ModuleSource` vs `scopeCeiling` in `handler` vs `[[ScopeCeiling]]` in ModuleSource as a 3rd argument to the constructor
+  - `scopeHook` introduces an external call to the `initializeEnvironment()` call or somewhere right before it.
+
+- Undeniables obviously remain undeniable, but it's on the user of `scopeCeiling` to provide references to them along with all the expected cyclic references like `globalThis` or `window`
 
 
 [proposal-source-phase-imports]: https://github.com/tc39/proposal-source-phase-imports
