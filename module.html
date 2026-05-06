@@ -23,11 +23,12 @@
 </head>
 
 <body>
-    <span style="background: #ffe">https://tc39.es/proposal-source-phase-imports</span>
-    <span style="background: #fef">https://tc39.es/proposal-esm-phase-imports</span>
-    <span style="background: #eff">https://github.com/endojs/proposal-import-hook</span>
+    <div id="l">
+    <span style="background: #ffe"><a href="https://tc39.es/proposal-source-phase-imports">proposal-source-phase-imports</a> <a href="https://github.com/tc39/proposal-source-phase-imports">[repo]</a></span>
+    <span style="background: #fef"><a href="https://tc39.es/proposal-esm-phase-imports">proposal-esm-phase-imports</a> <a href="https://github.com/tc39/proposal-esm-phase-imports">[repo]</a></span>
     <span style="background: #afa">new variant A</span>
     <span style="background: #9da">new variant B</span>
+    </div>
     <pre class="mermaid">
 
 classDiagram
@@ -38,8 +39,9 @@ classDiagram
         [[Environment]] : Module Environment Record | EMPTY
         [[Namespace]] : Object | EMPTY
         [[SourceRecord]] : Module Source Record
-        -[[ModuleSource]] : replaced by esm-phase
+        -[[ModuleSource]] : replaced by SourceRecord in esm-phase
         [[HostDefined]] : anything
+        +[[Compartment]] : Compartment | EMPTY
     }
     link ModuleRecord "https://tc39.es/ecma262/multipage/ecmascript-language-scripts-and-modules.html#sec-abstract-module-records"
 
@@ -63,7 +65,6 @@ classDiagram
     class SourceTextModuleRecord {
         [[ECMAScriptCode]] : Parse Node
         [[Context]] : Execution Context | EMPTY
-        +A[[ScopeCeiling]] : Object | EMPTY
         [[ImportMeta]] : Object | EMPTY
         [[ImportEntries]] : List~ImportEntry Records~
         [[LocalExportEntries]] : List~ExportEntry Records~
@@ -106,13 +107,6 @@ classDiagram
         [[OuterEnv]] = null
     }
 
-    class FunctionEnvironmentRecord {
-        [[ThisValue]]
-        [[ThisBindingStatus]]
-        [[FunctionObject]]
-        [[NewTarget]]
-    }
-
     class ModuleEnvironmentRecord {
         [[OuterEnv]] : Environment Record 
     }
@@ -133,7 +127,6 @@ classDiagram
     EnvironmentRecord <|-- DeclarativeEnvironmentRecord
     EnvironmentRecord <|-- ObjectEnvironmentRecord
     EnvironmentRecord <|-- GlobalEnvironmentRecord
-    DeclarativeEnvironmentRecord <|-- FunctionEnvironmentRecord
     DeclarativeEnvironmentRecord <|-- ModuleEnvironmentRecord
 
     ModuleRecord --> RealmRecord : [[Realm]]
@@ -145,7 +138,6 @@ classDiagram
     GlobalEnvironmentRecord --> DeclarativeEnvironmentRecord : [[DeclarativeRecord]]
 
     ObjectEnvironmentRecord <|-- ScopeCeiling : would this suffice?
-    SourceTextModuleRecord ..> ScopeCeiling : [[ScopeCeiling]] gets wrapped into
 
     class AbstractModuleSource:::sourceproposal {
         &lt;&lt;abstract>>
@@ -163,7 +155,7 @@ classDiagram
         [[Attributes]]
     }
     link ModuleRequestRecord "https://tc39.es/proposal-source-phase-imports/#sec-modulerequest-records"
-    note for ModuleRequestRecord "<a href=https://tc39.es/proposal-esm-phase-imports/#sec-modulesourcesequal>ModuleSourcesEqual(a,b)</a> <br> compares [[HostDefined]] too. <br> could compare [[ScopeCeiling]]"
+    note for ModuleRequestRecord "<a href=https://tc39.es/proposal-esm-phase-imports/#sec-modulesourcesequal>ModuleSourcesEqual(a,b)</a> <br> compares [[HostDefined]] too. <br> could consider Compartment"
 
     class ModuleSourceRecord:::esmphaseproposal {
         [[HostDefined]] : anything
@@ -175,27 +167,23 @@ classDiagram
 
     class ModuleSource:::esmphaseproposal {
         [[ModuleSourceRecord]] : Module Source Record
-        +[[ModuleHandler]] : Object | EMPTY
-        +[[ScopeCeiling]] : Object | EMPTY
-        +constructor(src, handler)
     }
     link ModuleSource "https://tc39.es/proposal-esm-phase-imports/#sec-module-source-object"
     
-    ModuleSource ..> ScopeCeiling : [[ScopeCeiling]] gets wrapped into
 
-    class ModuleHandler:::importhookproposal {
-        [[importHook]]
-        [[resolveHook]]
-        [[importMetaHook]]
-        +A[[scopeHook]]: populates the [[ScopeCeiling]] on ModuleRecord
-        +B[[scopeCeiling]]: captured in [[ScopeCeiling]] 
+    class Compartment:::added {
+        [[moduleMap]]
+        +[[ScopeCeiling]] : Object | EMPTY
     }
+
+    Compartment --> ScopeCeiling : [[ScopeCeiling]] 
+    ModuleRecord --> Compartment : +[[Compartment]]
+    
     AbstractModuleSource <|-- HostDefinedModuleSource
     AbstractModuleSource <|-- ModuleSource
     ModuleRecord --> ModuleSourceRecord : [[SourceRecord]]
     ModuleSourceRecord --> ModuleSource : [[ModuleSource]]
     ModuleSource --> ModuleSourceRecord : [[ModuleSourceRecord]]
-    ModuleSource --> ModuleHandler : [[ModuleHandler]]
     CyclicModuleRecord --> ModuleRequestRecord : [[RequestedModules]]
 
 classDef sourceproposal fill:#ffe
@@ -238,6 +226,20 @@ classDef added fill:#afa
         .mermaid {
             /* makes zooming in and out work */
             width: 200vw
+        }
+        #l {
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: #fff8;
+            padding: 10px;
+            z-index: 1000;
+            span {
+                padding: 10px;
+            }
+        }
+        a, a:visited {
+            color: #000;
         }
     </style>
 
