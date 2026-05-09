@@ -14,6 +14,9 @@ Champions:
 A way to evaluate a module and its dependencies in the context of a new global scope within the same Realm
 
 
+Sever the tie to the `GlobalEnvironmentRecord` in `ModuleEnvironmentRecord` instances and replace with `ScopeCeiling` whenever provided.
+
+
 
 > This proposal picks up from the previous proposal for
 > [Evaluators](https://github.com/tc39/proposal-compartments/blob/7e60fdbce66ef2d97370007afeb807192c653333/3-evaluator.md)
@@ -91,55 +94,75 @@ That includes REPLs, inline code execution results in editors (eg. [Quokka.js](h
 
 Maintaining the global state between executions of user-provided code snippets would benefit from the ability to control scope 
 
+## Proposal
+
+Allow evaluating a module without access to global context by severing the tie to the `GlobalEnvironmentRecord` in `ModuleEnvironmentRecord` instances 
+by setting `[[OuterEnv]]` to a different record than `module.[[Realm]].[[GlobalEnv]]`, replacing it with user-defined emulation of a global we will refer to as **Scope Ceiling**
+
+### Scope Ceiling
+
+[16.2.1.7.3.1 InitializeEnvironment ( )](https://tc39.es/ecma262/multipage/ecmascript-language-scripts-and-modules.html#sec-source-text-module-record-initialize-environment)
+
+```scheme
+3. Let realm be module.[[Realm]].
+4. Assert: realm is not undefined.
++ if module.[[ScopeCeiling]] is not EMPTY, then
++     Let outer be NewObjectEnvironment(module.[[ScopeCeiling]], false, null)
++     Let env be NewModuleEnvironment(outer)
++   Else
+      Let env be NewModuleEnvironment(realm.[[GlobalEnv]]).
+5. Set module.[[Environment]] to env.
+```
+> note:
+> - `module` is Source Text Module Record
+> - NewObjectEnvironment could be called earlier
+> - `[[ScopeCeiling]]` will likely be accessed indirectly
+
+
+The association between `ModuleRecord` and `ScopeCeiling` ultimately needs to be introduced by an intermediary - potentially the same intermediary that introduces a Module Map or an `importHook`. (e.g. Compartment) 
+
+> We initially considered associating `ScopeCeiling` with `ModuleSource` in its constructor. It doesn't compose well with the esm-phase-imports proposal anymore.
+
+---
+
+#### Execution Context interactions
+
+
+> Note: `module.[[Environment]]` becomes `LexicalEnvironment` of the `moduleContext`
+
+```scheme
+11. Set the Realm of moduleContext to module.[[Realm]].
+12. Set the ScriptOrModule of moduleContext to module.
+13. Set the VariableEnvironment of moduleContext to module.[[Environment]].
+14. Set the LexicalEnvironment of moduleContext to module.[[Environment]].
+15. Set the PrivateEnvironment of moduleContext to null.
+16. Set module.[[Context]] to moduleContext.
+17. Push moduleContext onto the execution context stack; 
+  moduleContext is now the running execution context.
+```
+
+
+1. The `x` IdentifierReference is evaluated. Per [§13.1.3](https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#sec-identifiers-runtime-semantics-evaluation) (Runtime Semantics: Evaluation of IdentifierReference), calls [`ResolveBinding("x")`](https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-resolvebinding).
+
+2. [`ResolveBinding`](https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-resolvebinding) reads `env` from the **running execution context's `LexicalEnvironment`**. The running execution context is `module.[[Context]]`, and its `LexicalEnvironment` is the module's `ModuleEnvironmentRecord`. Since module code is always strict, `strict` = **true**. Calls `GetIdentifierReference(moduleEnv, "x", true)`.
+
+
+3. [`GetIdentifierReference`](https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-getidentifierreference) calls **`moduleEnv.HasBinding("x")`** on the `ModuleEnvironmentRecord`. The module environment holds only the module's own top-level `var`/`let`/`const`/`class` declarations and imported bindings. `x` is none of these, so `HasBinding` returns **false**.
+
+4. `GetIdentifierReference` reads `outer` = **`moduleEnv.[[OuterEnv]]`** reaching `ScopeCeiling`
+
+5. `ScopeCeiling.[[OuterEnv]]` is null, so it cannot progress to Realm global for lookup
+
+
+The change would result in an option to run a module in a context that does not have the means to reach globals lexically. 
+The *undeniables* would come from the shared Realm, convenience of accessing intrinsics lexically via their global name
+would depend on the provider of `ScopeCeiling` adding them.
+
+---
+
 ## Intersection Semantics
 
-TBD
-
-## Design Questions
-
-### Prototype chain in the browser
-
-`globalThis` in the browser has a non-trivial prototype chain for some Window
-API functionality and events.
-
-```js
-let pro = globalThis;
-while (pro = Object.getPrototypeOf(pro)) {
-  console.log(pro.toString())
-}
-```
-```
-// browsers
-[object Window]
-[object WindowProperties]
-[object EventTarget]
-[object Object]
-null
-```
-```
-// web extension contentscript
-[object Window]
-[object WindowProperties]
-null
-```
-```
-// Node.js
-[object Object]
-[object Object]
-null
-```
-```
-// Deno
-[object Window]
-[object EventTarget]
-[object Object]
-null
-```
-```
-// Hermes
-[object Object]
-undefined
-```
+Depends on an umbrella proposal to have an entrypoint to defining a `ScopeCeiling`, so likely will be folded into a Compartment proposal or its subset.
 
 
 [proposal-source-phase-imports]: https://github.com/tc39/proposal-source-phase-imports
