@@ -96,46 +96,73 @@ Maintaining the global state between executions of user-provided code snippets w
 
 ## Proposal
 
-We extend the ModuleSource constructor to accept an optional handler. *Note: this is matching the handler from [proposal-import-hook][],*
+Allow evaluating a module without access to global context by severing the tie to the `GlobalEnvironmentRecord` in `ModuleEnvironmentRecord` instances 
+by setting `[[OuterEnv]]` to a different record than `module.[[Realm]].[[GlobalEnv]]`, replacing it with user-defined emulation of a global we will refer to as **Scope Ceiling**
 
-```js
-interface ModuleSource {
-  constructor(source: string | ModuleSource, handler?: ModuleHandler);
-}
+### Scope Ceiling
+
+[16.2.1.7.3.1 InitializeEnvironment ( )](https://tc39.es/ecma262/multipage/ecmascript-language-scripts-and-modules.html#sec-source-text-module-record-initialize-environment)
+
+```scheme
+3. Let realm be module.[[Realm]].
+4. Assert: realm is not undefined.
++ if module.[[ScopeCeiling]] is not EMPTY, then
++     Let outer be NewObjectEnvironment(module.[[ScopeCeiling]], false, null)
++     Let env be NewModuleEnvironment(outer)
++   Else
+      Let env be NewModuleEnvironment(realm.[[GlobalEnv]]).
+5. Set module.[[Environment]] to env.
+```
+> note:
+> - `module` is Source Text Module Record
+> - NewObjectEnvironment could be called earlier
+> - `[[ScopeCeiling]]` will likely be accessed indirectly
+
+
+The association between `ModuleRecord` and `ScopeCeiling` ultimately needs to be introduced by an intermediary - potentially the same intermediary that introduces a Module Map or an `importHook`. (e.g. Compartment) 
+
+> We initially considered associating `ScopeCeiling` with `ModuleSource` in its constructor. It doesn't compose well with the esm-phase-imports proposal anymore.
+
+---
+
+#### Execution Context interactions
+
+
+> Note: `module.[[Environment]]` becomes `LexicalEnvironment` of the `moduleContext`
+
+```scheme
+11. Set the Realm of moduleContext to module.[[Realm]].
+12. Set the ScriptOrModule of moduleContext to module.
+13. Set the VariableEnvironment of moduleContext to module.[[Environment]].
+14. Set the LexicalEnvironment of moduleContext to module.[[Environment]].
+15. Set the PrivateEnvironment of moduleContext to null.
+16. Set module.[[Context]] to moduleContext.
+17. Push moduleContext onto the execution context stack; 
+  moduleContext is now the running execution context.
 ```
 
-The ModuleSource constructor eagerly captures the handler and the functions contained in it in internal slots. The implementation will thereafter pass the handler as the receiver object to any invocation of the `scopeHook`, so the hooks may consult other properties of the handler.
 
-> Aside  (from [proposal-import-hook][]), the handler is necessary for capturing a base specifier for resolving a relative import specifier, and allows 262 to avoid unnecssary specificity about resolution algorithms.
+1. The `x` IdentifierReference is evaluated. Per [§13.1.3](https://tc39.es/ecma262/multipage/ecmascript-language-expressions.html#sec-identifiers-runtime-semantics-evaluation) (Runtime Semantics: Evaluation of IdentifierReference), calls [`ResolveBinding("x")`](https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-resolvebinding).
 
-Because the identity of a ModuleSource is a key in a realm's module map for purposes of denoting a corresponding module instance, we introduce the ability to construct a ModuleSource from the precompiled text and host data of another module source, but producing a distinct identity for purposes of multiple instantiation.
-
-```js
-type ModuleHandler = {
-  +A scopeHook?: scopeHook,
-  +B scopeCeiling?: Object,
-  // ...
-  [name: string | symbol | number]: unknown,
-};
-```
-
-The `scopeHook` is a function that accepts a single Object argument called `scopeCeiling` and synchronously adds properties to it using either set or define semantics. Returns void.
-
-The `scopeCeiling` object is later wrapped in a `ObjectEnvironmentRecord` and used as the `OuterEnv` of the `ModuleEnvironmentRecord` instance for a module created from the `ModuleSource` 
+2. [`ResolveBinding`](https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-resolvebinding) reads `env` from the **running execution context's `LexicalEnvironment`**. The running execution context is `module.[[Context]]`, and its `LexicalEnvironment` is the module's `ModuleEnvironmentRecord`. Since module code is always strict, `strict` = **true**. Calls `GetIdentifierReference(moduleEnv, "x", true)`.
 
 
+3. [`GetIdentifierReference`](https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-getidentifierreference) calls **`moduleEnv.HasBinding("x")`** on the `ModuleEnvironmentRecord`. The module environment holds only the module's own top-level `var`/`let`/`const`/`class` declarations and imported bindings. `x` is none of these, so `HasBinding` returns **false**.
+
+4. `GetIdentifierReference` reads `outer` = **`moduleEnv.[[OuterEnv]]`** reaching `ScopeCeiling`
+
+5. `ScopeCeiling.[[OuterEnv]]` is null, so it cannot progress to Realm global for lookup
+
+
+The change would result in an option to run a module in a context that does not have the means to reach globals lexically. 
+The *undeniables* would come from the shared Realm, convenience of accessing intrinsics lexically via their global name
+would depend on the provider of `ScopeCeiling` adding them.
+
+---
 
 ## Intersection Semantics
 
-- Shares `ModuleHandler` with [proposal-import-hook][]
-- [proposal-import-hook][] deliberately proposes capturing the `handler` so that `importHook` could reference it via `this`, which gives it the convenience to create a subset of `scopeCeiling` or pass it on to `ModuleSource` it returns.
-
-## Design Questions
-
-- `handler` with `scopeHook` in `ModuleSource` vs `scopeCeiling` in `handler` vs `[[ScopeCeiling]]` in ModuleSource as a 3rd argument to the constructor
-  - `scopeHook` introduces an external call to the `initializeEnvironment()` call or somewhere right before it.
-
-- Undeniables obviously remain undeniable, but it's on the user of `scopeCeiling` to provide references to them along with all the expected cyclic references like `globalThis` or `window`
+Depends on an umbrella proposal to have an entrypoint to defining a `ScopeCeiling`, so likely will be folded into a Compartment proposal or its subset.
 
 
 [proposal-source-phase-imports]: https://github.com/tc39/proposal-source-phase-imports
