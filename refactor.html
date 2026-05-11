@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ModuleRecord and friends
+
+        ###################################################################################################
+
+
+        Open this file in the browser to see the diagram rendered with working links and color coding
+
+
+        (CMD/Ctrl)+Scroll to zoom in and out works
+
+        ###################################################################################################
+
+
+
+    </title>
+    <base target="_blank">
+</head>
+
+<body>
+    <div id="l">
+    <span style="background: #ffe"><a href="https://tc39.es/proposal-source-phase-imports">proposal-source-phase-imports</a> <a href="https://github.com/tc39/proposal-source-phase-imports">[repo]</a></span>
+    <span style="background: #fef"><a href="https://tc39.es/proposal-esm-phase-imports">proposal-esm-phase-imports</a> <a href="https://github.com/tc39/proposal-esm-phase-imports">[repo]</a></span>
+    <span style="background: #afa">new</span>
+    </div>
+    <pre class="mermaid">
+
+classDiagram
+    class ModuleRecord {
+        &lt;&lt;abstract>>
+        [[Status]]
+        -[[Realm]] : Realm Record
+        +[[Container]] : Container Record
+        [[Environment]] : Module Environment Record | EMPTY
+        [[Namespace]] : Object | EMPTY
+        [[SourceRecord]] : Module Source Record
+        [[HostDefined]] : anything
+        -[[Compartment]] : Compartment | EMPTY
+    }
+    link ModuleRecord "https://tc39.es/ecma262/multipage/ecmascript-language-scripts-and-modules.html#sec-abstract-module-records"
+
+    class CyclicModuleRecord {
+        &lt;&lt;abstract>>
+        [[Status]]
+        [[EvaluationError]]
+        [[DFSAncestorIndex]]
+        [[RequestedModules]] : List~ModuleRequest Records~
+        [[LoadedModules]] : List~LoadedModuleRequest Records~
+        [[CycleRoot]]
+        [[HasTLA]] : Boolean
+        [[AsyncEvaluationOrder]]
+        [[TopLevelCapability]]
+        [[AsyncParentModules]]
+        [[PendingAsyncDependencies]]
+    }
+    link CyclicModuleRecord "https://tc39.es/ecma262/multipage/ecmascript-language-scripts-and-modules.html#cyclic-module-record"
+
+  
+    class SourceTextModuleRecord {
+        [[ECMAScriptCode]] : Parse Node
+        [[Context]] : Execution Context | EMPTY
+        [[ImportMeta]] : Object | EMPTY
+        [[ImportEntries]] : List~ImportEntry Records~
+        [[LocalExportEntries]] : List~ExportEntry Records~
+        [[IndirectExportEntries]] : List~ExportEntry Records~
+        [[StarExportEntries]] : List~ExportEntry Records~
+    }
+    link SourceTextModuleRecord "https://tc39.es/ecma262/multipage/ecmascript-language-scripts-and-modules.html#sourctextmodule-record"
+    note for SourceTextModuleRecord "<a href=https://tc39.es/ecma262/multipage/ecmascript-language-scripts-and-modules.html#sec-source-text-module-record-initialize-environment>InitializeEnvironment()</a><br>to use [[ScopeCeiling]]<br>instead of realm.[[GlobalEnv]]<br>for  NewModuleEnvironment(OuterEnv)<br>if [[ScopeCeiling]] not EMPTY"
+
+    class ScopeCeiling:::added {
+        [[OuterEnv]] = null
+        [[BindingObject]] handles the globalThis binding and var
+        :
+        inheriting from ObjectEnvironmentRecord is sufficient,
+        but all bindings are dynamic andcould be slower than 
+        a mix of ObjectRecord and DeclarativeRecord
+    }
+
+    class EnvironmentRecord {
+        &lt;&lt;abstract>>
+        [[OuterEnv]] : Environment Record | null
+    }
+    link EnvironmentRecord "https://tc39.es/ecma262/#sec-environment-records"
+
+
+
+    class DeclarativeEnvironmentRecord {
+    }
+    link DeclarativeEnvironmentRecord "https://tc39.es/ecma262/#sec-declarative-environment-records" 
+
+    class ObjectEnvironmentRecord {
+        [[BindingObject]] : Object
+        [[IsWithEnvironment]] : Boolean
+    }
+
+    class GlobalEnvironmentRecord {
+        [[ObjectRecord]] : Object Environment Record
+        [[GlobalThisValue]] : Object
+        [[DeclarativeRecord]] : Declarative Environment Record
+        [[OuterEnv]] = null
+    }
+
+    class ModuleEnvironmentRecord {
+        [[OuterEnv]] : Environment Record 
+    }
+    link ModuleEnvironmentRecord "https://tc39.es/ecma262/#sec-module-environment-records"
+
+    class RealmRecord {
+        [[AgentSignifier]]
+        [[Intrinsics]]
+        [[GlobalObject]] : Object
+        [[GlobalEnv]] : Global Environment Record
+        [[TemplateMap]]
+        [[LoadedModules]]
+        [[HostDefined]]
+    }
+
+    class ExecutionContext {
+        code evaluation state
+        Function : function object | null
+        Realm : Realm Record
+        ScriptOrModule : Module Record | Script Record | null
+    }
+    link ExecutionContext "https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-execution-contexts"
+    note for ExecutionContext "<a href=https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-resolvebinding>ResolveBinding()</a> consults ModuleEnvironmentRecord"
+
+    class ECMAScriptCodeExecutionContext {
+        LexicalEnvironment : Environment Record
+        VariableEnvironment : Environment Record
+        PrivateEnvironment : PrivateEnvironment Record | null
+    }
+    link ECMAScriptCodeExecutionContext "https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#ecmascript-code-execution-context"
+
+
+    ExecutionContext <|-- ECMAScriptCodeExecutionContext
+
+    ModuleRecord <|-- CyclicModuleRecord
+    CyclicModuleRecord <|-- SourceTextModuleRecord
+    EnvironmentRecord <|-- DeclarativeEnvironmentRecord
+    EnvironmentRecord <|-- ObjectEnvironmentRecord
+    EnvironmentRecord <|-- GlobalEnvironmentRecord
+    DeclarativeEnvironmentRecord <|-- ModuleEnvironmentRecord
+
+    ModuleRecord --> RealmRecord : [[Realm]]
+    ModuleRecord --> ModuleEnvironmentRecord : [[Environment]]
+    SourceTextModuleRecord --> ECMAScriptCodeExecutionContext : [[Context]]
+    ECMAScriptCodeExecutionContext --> RealmRecord : Realm
+    RealmRecord --> GlobalEnvironmentRecord : [[GlobalEnv]]
+    ModuleEnvironmentRecord ..> GlobalEnvironmentRecord : [[OuterEnv]]
+    ModuleEnvironmentRecord ..> ScopeCeiling : +[[OuterEnv]]
+    GlobalEnvironmentRecord --> ObjectEnvironmentRecord : [[ObjectRecord]]
+    GlobalEnvironmentRecord --> DeclarativeEnvironmentRecord : [[DeclarativeRecord]]
+
+    ObjectEnvironmentRecord <|-- ScopeCeiling : would this suffice?
+
+    class AbstractModuleSource:::sourceproposal {
+        &lt;&lt;abstract>>
+    }   
+    link AbstractModuleSource "https://tc39.es/proposal-source-phase-imports/#sec-abstract-module-source-constructor"
+
+    class HostDefinedModuleSource:::sourceproposal {
+        &lt;&lt;host-defined>>
+        e.g. WebAssembly.Module
+    }
+
+    class ModuleRequestRecord:::sourceproposal {
+        [[Specifier]] : String
+        [[Phase]] : source | evaluation
+        [[Attributes]]
+    }
+    link ModuleRequestRecord "https://tc39.es/proposal-source-phase-imports/#sec-modulerequest-records"
+    note for ModuleRequestRecord "<a href=https://tc39.es/proposal-esm-phase-imports/#sec-modulesourcesequal>ModuleSourcesEqual(a,b)</a> <br> compares [[HostDefined]] too. <br> could consider Compartment"
+
+    class ModuleSourceRecord:::esmphaseproposal {
+        [[HostDefined]] : anything
+        [[SourceText]] : source text | NONE
+        [[ModuleSourceKind]] : String
+        [[ModuleSource]] : Object | EMPTY
+    }
+    link ModuleSourceRecord "https://tc39.es/proposal-esm-phase-imports/#module-source-record"
+
+    class ModuleSource:::esmphaseproposal {
+        [[ModuleSourceRecord]] : Module Source Record
+    }
+    link ModuleSource "https://tc39.es/proposal-esm-phase-imports/#sec-module-source-object"
+    
+
+    class Compartment:::added {
+        [[moduleMap]]
+        +[[ScopeCeiling]] : Object | EMPTY
+    }
+
+    Compartment --> ScopeCeiling : [[ScopeCeiling]] 
+    ModuleRecord --> Compartment : +[[Compartment]]
+    
+    AbstractModuleSource <|-- HostDefinedModuleSource
+    AbstractModuleSource <|-- ModuleSource
+    ModuleRecord --> ModuleSourceRecord : [[SourceRecord]]
+    ModuleSourceRecord --> ModuleSource : [[ModuleSource]]
+    ModuleSource --> ModuleSourceRecord : [[ModuleSourceRecord]]
+    CyclicModuleRecord --> ModuleRequestRecord : [[RequestedModules]]
+
+classDef sourceproposal fill:#ffe
+classDef esmphaseproposal fill:#fef
+classDef importhookproposal fill:#eff
+
+classDef added fill:#afa
+
+  </pre>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, securityLevel: 'loose' });
+
+        setTimeout(() => {
+            document.querySelectorAll('.mermaid svg p').forEach(p => {
+                if (p.textContent.startsWith('+')) {
+                    p.style.background = '#afa';
+                }
+                if (p.textContent.startsWith('+B')) {
+                    p.style.background = '#9da';
+                }
+                if (p.textContent.startsWith('-')) {
+                    p.style.color = '#f00';
+                }
+            })
+
+            document.querySelectorAll('.mermaid svg .edgePaths path').forEach(path => {
+                path.style.strokeWidth = '2px';
+                path.addEventListener('mouseover', () => {
+                    path.style.stroke = '#f00';
+                });
+                path.addEventListener('mouseout', () => {
+                    path.style.stroke = '';
+                });
+            });
+
+        }, 1000);
+    </script>
+    <style>
+        .mermaid {
+            /* makes zooming in and out work */
+            width: 200vw
+        }
+        #l {
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: #fff8;
+            padding: 10px;
+            z-index: 1000;
+            span {
+                padding: 10px;
+            }
+        }
+        a, a:visited {
+            color: #000;
+        }
+    </style>
+
+</body>
+
+</html>
